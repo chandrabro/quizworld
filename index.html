@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiz Video Studio — क्विज भिडियो स्टुडियो</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600;700&family=Inter:wght@400;600;800&family=Mukta:wght@400;600;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span> Quiz Video Studio <small>क्विज भिडियो स्टुडियो</small></div>
+  <div class="row">
+    <button id="btnSaveProj" title="Download everything as a project file">💾 Save project</button>
+    <button id="btnLoadProj" title="Load a saved project (.json)">📂 Load project</button>
+    <button id="btnReset" class="danger">New</button>
+    <input type="file" id="projIn" accept=".json" hidden>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ STAGE ============ -->
+  <section class="stage">
+    <div class="canvasWrap" id="canvasWrap">
+      <canvas id="cv"></canvas>
+      <div id="expOverlay" class="expOverlay" hidden>
+        <div class="expBox">
+          <div id="expTitle">Recording…</div>
+          <div class="bar"><i id="expBar"></i></div>
+          <div id="expInfo" class="muted"></div>
+          <button id="btnExpCancel" class="danger">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="btnPrev" title="Previous question (←)">⏮</button>
+      <button id="btnPlay" class="primary" title="Play / Pause (Space)">▶ Play</button>
+      <button id="btnNext" title="Next question (→)">⏭</button>
+      <button id="btnReveal" title="Jump to the answer reveal (R)">Reveal now</button>
+      <input type="range" id="seek" min="0" max="1000" value="0">
+      <span id="timeLbl" class="muted mono">0:00 / 0:00</span>
+      <button id="btnFull" title="Fullscreen (F)">⛶</button>
+    </div>
+    <div class="muted small">Shortcuts: <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> question · <kbd>R</kbd> reveal now · <kbd>F</kbd> fullscreen</div>
+  </section>
+
+  <!-- ============ PANEL ============ -->
+  <section class="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="tQ" class="on">Questions</button>
+      <button data-tab="tStyle">Style</button>
+      <button data-tab="tTime">Timing &amp; Sound</button>
+      <button data-tab="tVoice">Voice (TTS)</button>
+      <button data-tab="tExp">Export</button>
+    </nav>
+
+    <!-- QUESTIONS -->
+    <div class="pane on" id="tQ">
+      <div class="drop" id="drop">
+        <b>Drop an Excel / CSV / JSON file here</b>
+        <span>or</span>
+        <button id="btnUpload" class="primary">Choose file</button>
+        <input type="file" id="fileIn" accept=".json,.xlsx,.xls,.csv,.ods" hidden>
+      </div>
+      <div class="row wrap">
+        <button id="btnTplX">⬇ Excel template</button>
+        <button id="btnTplJ">⬇ JSON template</button>
+        <button id="btnAdd">＋ Add question</button>
+        <button id="btnShufQ">🔀 Shuffle questions</button>
+        <button id="btnShufO">🔀 Shuffle options</button>
+        <button id="btnClear" class="danger">Clear all</button>
+      </div>
+      <div class="row wrap">
+        <button class="primary js-measure">⏱ Measure all (TTS timing)</button>
+        <span class="muted small js-measureInfo"></span>
+      </div>
+      <div class="muted small">Excel columns: <b>S.N · Question · Option A · Option B · Option C · Option D · Correct Answer</b> (A/B/C/D, 1–4, क/ख/ग/घ or the answer text). Optional: <b>Explanation</b>, <b>Timer</b>.</div>
+      <div class="tablewrap">
+        <table id="qt">
+          <thead><tr><th>#</th><th>Question</th><th>A</th><th>B</th><th>C</th><th>D</th><th>Ans</th><th>Timer&nbsp;s</th><th>Explanation</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <input type="file" id="imgIn" accept="image/*" hidden>
+    </div>
+
+    <!-- STYLE -->
+    <div class="pane" id="tStyle">
+      <h3>Language preset</h3>
+      <div class="row wrap">
+        <button id="presetEn">English labels</button>
+        <button id="presetNe">नेपाली labels</button>
+      </div>
+      <div class="grid2">
+        <label>Question label <input data-s="qLabel" type="text"></label>
+        <label>Reveal label <input data-s="revealLabel" type="text"></label>
+        <label>Option letters
+          <select data-s="letters"><option value="latin">A B C D</option><option value="nepali">क ख ग घ</option></select>
+        </label>
+        <label class="chk"><input data-s="nepDigits" type="checkbox"> Nepali digits (१ २ ३)</label>
+      </div>
+
+      <h3>Look</h3>
+      <div class="grid2">
+        <label>Theme
+          <select data-s="theme" id="theme">
+            <option value="midnight">Midnight</option><option value="ocean">Ocean</option><option value="sunset">Sunset</option>
+            <option value="forest">Forest</option><option value="royal">Royal</option><option value="paper">Paper (light)</option>
+          </select>
+        </label>
+        <label>Video shape
+          <select data-s="ratio"><option value="16:9">16:9 landscape (YouTube)</option><option value="9:16">9:16 vertical (Shorts/Reels)</option><option value="1:1">1:1 square</option></select>
+        </label>
+        <label>Font
+          <select data-s="font"><option>Noto Sans Devanagari</option><option>Mukta</option><option>Hind</option><option>Inter</option></select>
+        </label>
+        <label>Card opacity <input data-s="cardAlpha" type="range" min="0.04" max="0.4" step="0.01"></label>
+        <label>Background 1 <input data-s="bg1" type="color"></label>
+        <label>Background 2 <input data-s="bg2" type="color"></label>
+        <label>Accent <input data-s="accent" type="color"></label>
+        <label>Correct-answer colour <input data-s="correct" type="color"></label>
+        <label>Text colour <input data-s="text" type="color"></label>
+        <label>Image overlay <input data-s="overlay" type="range" min="0" max="0.9" step="0.05"></label>
+      </div>
+      <div class="row wrap">
+        <label class="filebtn">Background image <input type="file" id="bgIn" accept="image/*" hidden></label>
+        <button id="bgClear">remove</button>
+        <label class="filebtn">Logo <input type="file" id="logoIn" accept="image/*" hidden></label>
+        <button id="logoClear">remove</button>
+      </div>
+      <label>Watermark / channel name <input data-s="watermark" type="text" placeholder="@mychannel"></label>
+
+      <h3>Title &amp; outro slides</h3>
+      <div class="grid2">
+        <label class="chk"><input data-s="titleOn" type="checkbox"> Show title slide</label>
+        <label>Seconds <input data-s="titleSec" type="number" min="1" max="15" step="0.5"></label>
+        <label>Title <input data-s="title" type="text"></label>
+        <label>Subtitle <input data-s="subtitle" type="text"></label>
+        <label class="chk"><input data-s="outroOn" type="checkbox"> Show outro slide</label>
+        <label>Seconds <input data-s="outroSec" type="number" min="1" max="15" step="0.5"></label>
+        <label>Outro <input data-s="outro" type="text"></label>
+        <label>Outro subtitle <input data-s="outroSub" type="text"></label>
+      </div>
+    </div>
+
+    <!-- TIMING & SOUND -->
+    <div class="pane" id="tTime">
+      <h3>Timing</h3>
+      <div class="grid2">
+        <label>“Question N” intro (s) <input data-s="introSec" type="number" min="0" max="8" step="0.1"></label>
+        <label>Default timer (s) <input data-s="defaultTimer" type="number" min="2" max="120" step="1"></label>
+        <label>Min. reveal time (s) <input data-s="revealSec" type="number" min="1" max="30" step="0.5"></label>
+        <label>Extra thinking time after TTS (s) <input data-s="buffer" type="number" min="0" max="60" step="1"></label>
+      </div>
+      <div class="row wrap">
+        <button id="btnApplyTimer">Set every question to the default timer</button>
+      </div>
+      <div class="muted small">Per-question timers can be typed in the Timer column. “Measure all” fills that column with <i>TTS reading time + extra thinking time</i>.</div>
+
+      <h3>Sound</h3>
+      <div class="grid2">
+        <label class="chk"><input data-s="startSound" type="checkbox"> Sound at each question start</label>
+        <label class="chk"><input data-s="tickOn" type="checkbox"> Countdown ticks</label>
+        <label>Ticks during last (s) <input data-s="tickFrom" type="number" min="1" max="30" step="1"></label>
+        <label>Effects volume <input data-s="sfxVol" type="range" min="0" max="1" step="0.05"></label>
+        <label>Reveal sound
+          <select data-s="revealSound"><option value="chime">Chime</option><option value="fanfare">Fanfare</option><option value="pop">Pop</option><option value="none">None</option></select>
+        </label>
+        <label>Music volume <input data-s="musicVol" type="range" min="0" max="0.6" step="0.01"></label>
+      </div>
+      <div class="row wrap">
+        <label class="filebtn">Custom reveal sound <input type="file" id="revIn" accept="audio/*" hidden></label>
+        <button id="revClear">remove</button>
+        <label class="filebtn">Background music <input type="file" id="musIn" accept="audio/*" hidden></label>
+        <button id="musClear">remove</button>
+      </div>
+      <div class="muted small" id="audioInfo"></div>
+    </div>
+
+    <!-- VOICE -->
+    <div class="pane" id="tVoice">
+      <h3>Browser text-to-speech</h3>
+      <label class="chk"><input data-s="ttsOn" type="checkbox"> Enable text-to-speech</label>
+      <div class="grid2">
+        <label>English voice <select id="voiceEn" data-s="voiceEn"></select></label>
+        <label>Nepali / Devanagari voice <select id="voiceNe" data-s="voiceNe"></select></label>
+        <label>Speed <input data-s="rate" type="range" min="0.5" max="1.6" step="0.05"></label>
+        <label>Pitch <input data-s="pitch" type="range" min="0.5" max="1.6" step="0.05"></label>
+        <label>Volume <input data-s="ttsVol" type="range" min="0" max="1" step="0.05"></label>
+      </div>
+      <div class="grid2">
+        <label class="chk"><input data-s="readLabel" type="checkbox"> Read “Question N”</label>
+        <label class="chk"><input data-s="readOptions" type="checkbox"> Read the options</label>
+        <label class="chk"><input data-s="readReveal" type="checkbox"> Read “Correct answer …”</label>
+        <label class="chk"><input data-s="readExp" type="checkbox"> Read explanation</label>
+        <label class="chk"><input data-s="readTitle" type="checkbox"> Read title / outro</label>
+      </div>
+      <div class="row wrap">
+        <button id="testEn">▶ Test English</button>
+        <button id="testNe">▶ परीक्षण नेपाली</button>
+        <button id="testStop">■ Stop</button>
+      </div>
+      <div id="voiceInfo" class="note"></div>
+
+      <h3>Measure all</h3>
+      <div class="muted small">Reads every question one by one, measures how long the voice takes, and sets each question's timer (and reveal length) to fit. Run it again after changing voice or speed.</div>
+      <label class="chk"><input data-s="measureAudible" type="checkbox"> Play audibly while measuring (more reliable on some devices)</label>
+      <div class="row wrap">
+        <button class="primary js-measure">⏱ Measure all</button>
+        <button id="btnMeasureStop">Stop</button>
+      </div>
+      <div class="muted small js-measureInfo"></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="pane" id="tExp">
+      <h3>Export video</h3>
+      <div class="grid2">
+        <label>From question <input data-s="rangeFrom" type="number" min="1" step="1"></label>
+        <label>To question (0 = last) <input data-s="rangeTo" type="number" min="0" step="1"></label>
+        <label>Resolution
+          <select data-s="exportRes"><option value="720">720p</option><option value="1080">1080p</option></select>
+        </label>
+        <label>Frame rate
+          <select data-s="fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select>
+        </label>
+        <label>Bitrate (Mbps) <input data-s="bitrate" type="number" min="1" max="40" step="1"></label>
+        <label>Format <select id="mimeSel" data-s="exportMime"></select></label>
+      </div>
+      <label>Audio in the video
+        <select data-s="exportAudio">
+          <option value="sfx">Sound effects + music (TTS not recorded)</option>
+          <option value="tab">Capture everything, incl. TTS (screen/tab share)</option>
+          <option value="silent">No audio</option>
+        </select>
+      </label>
+      <div class="note">
+        <b>About voice in exported video:</b> browsers do not let a web page record its own text-to-speech output. To get the voice into the file, pick
+        <i>“Capture everything”</i>: your browser will ask what to share — choose <b>Entire screen</b> and tick <b>Share system audio</b> (Windows/ChromeOS Chrome or Edge). Tab-only sharing usually skips the speech voice. Keep this tab visible while recording.
+      </div>
+      <div class="row wrap">
+        <button id="btnExport" class="primary">🎬 Export video</button>
+        <span id="lenInfo" class="muted small"></span>
+      </div>
+      <div id="result" hidden>
+        <h3>Result</h3>
+        <video id="resVideo" controls playsinline></video>
+        <div class="row"><a id="resLink" class="btnlink" download>⬇ Download video</a></div>
+        <div class="muted small">Browser recordings are WebM or MP4 depending on your browser. If a player shows no timeline for a WebM, open it in VLC or convert it with any free converter.</div>
+      </div>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
