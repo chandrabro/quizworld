@@ -169,13 +169,27 @@
         <label>Reveal sound
           <select data-s="revealSound"><option value="chime">Chime</option><option value="fanfare">Fanfare</option><option value="pop">Pop</option><option value="none">None</option></select>
         </label>
-        <label>Music volume <input data-s="musicVol" type="range" min="0" max="0.6" step="0.01"></label>
       </div>
+
+      <h3>Audio 1 — plays during every question</h3>
+      <div class="muted small">One audio file used for all questions (e.g. a thinking tune). It starts with each question's timer, loops if shorter, and stops at the reveal.</div>
+      <div class="row wrap">
+        <label class="filebtn">Choose Audio 1 <input type="file" id="qaIn" accept="audio/*" hidden></label>
+        <button id="qaClear">remove</button>
+      </div>
+      <label>Audio 1 volume <input data-s="qAudioVol" type="range" min="0" max="1" step="0.01"></label>
+
+      <h3>Background music — plays through the whole video</h3>
+      <div class="row wrap">
+        <label class="filebtn">Choose background music <input type="file" id="musIn" accept="audio/*" hidden></label>
+        <button id="musClear">remove</button>
+      </div>
+      <label>Background music volume <input data-s="musicVol" type="range" min="0" max="1" step="0.01"></label>
+
+      <h3>Reveal sound</h3>
       <div class="row wrap">
         <label class="filebtn">Custom reveal sound <input type="file" id="revIn" accept="audio/*" hidden></label>
         <button id="revClear">remove</button>
-        <label class="filebtn">Background music <input type="file" id="musIn" accept="audio/*" hidden></label>
-        <button id="musClear">remove</button>
       </div>
       <div class="muted small" id="audioInfo"></div>
     </div>

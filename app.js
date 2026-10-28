@@ -27,14 +27,14 @@ const DEFAULTS = {
   outroOn: true, outro: 'Thanks for watching!', outroSub: 'Like • Share • Subscribe', outroSec: 3,
   watermark: '',
   introSec: 1.8, defaultTimer: 10, revealSec: 4, buffer: 3,
-  startSound: true, tickOn: true, tickFrom: 5, sfxVol: 0.6, revealSound: 'chime', musicVol: 0.15,
+  startSound: true, tickOn: true, tickFrom: 5, sfxVol: 0.6, revealSound: 'chime', musicVol: 0.15, qAudioVol: 0.6,
   ttsOn: true, voiceEn: '', voiceNe: '', rate: 1, pitch: 1, ttsVol: 1,
   readLabel: true, readOptions: true, readReveal: true, readExp: false, readTitle: true, measureAudible: false,
   rangeFrom: 1, rangeTo: 0, exportRes: 720, fps: 30, bitrate: 6, exportMime: '', exportAudio: 'sfx'
 };
 let S = { ...DEFAULTS };
 let Q = [];
-const assets = { bgImg: null, logo: null, music: null, reveal: null, musicName: '', revealName: '' };
+const assets = { bgImg: null, logo: null, music: null, reveal: null, qAudio: null, musicName: '', revealName: '', qAudioName: '' };
 const imgCache = new Map();
 
 const mkQ = (q = '', o = ['', '', '', ''], ans = 0, exp = '', time = null, img = null) =>
@@ -147,6 +147,16 @@ const AE = {
     this.musicSrc = s; this.musicGain = g;
   },
   stopMusic() { try { this.musicSrc && this.musicSrc.stop(); } catch { /* ignore */ } this.musicSrc = null; this.musicGain = null; },
+  startQAudio() {
+    this.stopQAudio();
+    if (!this.ctx || !assets.qAudio || S.qAudioVol <= 0) return;
+    const s = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    s.buffer = assets.qAudio; s.loop = true; g.gain.value = S.qAudioVol;
+    s.connect(g); g.connect(this.master); s.start();
+    this.qSrc = s; this.qGain = g;
+  },
+  stopQAudio() { try { this.qSrc && this.qSrc.stop(); } catch { /* ignore */ } this.qSrc = null; this.qGain = null; },
+  setQVol() { if (this.qGain) this.qGain.gain.value = S.qAudioVol; },
   setMusicVol() { if (this.musicGain) this.musicGain.gain.value = S.musicVol; },
   async decode(file) { this.init(); return this.ctx.decodeAudioData(await file.arrayBuffer()); }
 };
@@ -523,7 +533,8 @@ function speakSeg(seg, delay = 0) {
   delay ? setTimeout(go, delay) : go();
 }
 function enterSeg(seg) {
-  TTS.stop(); P.tick = -1;
+  TTS.stop(); P.tick = -1; AE.stopQAudio();
+  if (seg.type === 'ask') AE.startQAudio();
   if (seg.type === 'intro' && S.startSound) AE.start();
   if (seg.type === 'reveal') AE.reveal();
   speakSeg(seg, seg.type === 'reveal' && S.revealSound !== 'none' ? 700 : 0);
@@ -544,12 +555,12 @@ function pause() {
   if (AE.ctx && !P.exporting) AE.ctx.suspend();
   updatePlayBtn();
 }
-function stopAll() { P.playing = false; TTS.stop(); AE.stopMusic(); updatePlayBtn(); }
+function stopAll() { P.playing = false; TTS.stop(); AE.stopMusic(); AE.stopQAudio(); updatePlayBtn(); }
 function endPlayback() {
-  P.playing = false; P.seg = -2; TTS.stop(); AE.stopMusic(); updatePlayBtn();
+  P.playing = false; P.seg = -2; TTS.stop(); AE.stopMusic(); AE.stopQAudio(); updatePlayBtn();
   if (P.exporting) finishExport();
 }
-function seek(t) { P.t = clamp(t, 0, P.total); P.seg = -2; TTS.stop(); }
+function seek(t) { P.t = clamp(t, 0, P.total); P.seg = -2; TTS.stop(); AE.stopQAudio(); }
 function jumpQ(d) {
   const starts = P.tl.filter(s => s.type === 'intro' || (s.type === 'ask' && S.introSec <= 0)).map(s => s.start);
   if (!starts.length) return;
@@ -666,7 +677,7 @@ function cancelExport() {
   if (recorder && recorder.state !== 'inactive') recorder.stop(); else cleanupExport();
 }
 function cleanupExport() {
-  P.exporting = false; P.playing = false; AE.stopMusic(); AE.route(false);
+  P.exporting = false; P.playing = false; AE.stopMusic(); AE.stopQAudio(); AE.route(false);
   if (dispStream) { dispStream.getTracks().forEach(t => t.stop()); dispStream = null; }
   document.body.classList.remove('exporting'); $('#expOverlay').hidden = true;
   sizeCanvas(1); rebuild(); P.t = 0; updatePlayBtn();
@@ -817,6 +828,7 @@ function onSetting(key) {
   if (key === 'ratio') sizeCanvas(1);
   if (key === 'font') ensureFonts();
   if (key === 'musicVol') AE.setMusicVol();
+  if (key === 'qAudioVol') AE.setQVol();
   if (['rate', 'voiceEn', 'voiceNe'].includes(key)) Q.forEach(q => { q.ttsMs = null; });
   rebuild(); save();
 }
@@ -898,9 +910,11 @@ function setup() {
   $('#logoIn').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) { try { assets.logo = await loadImageFile(f); } catch { toast('Could not read that image.'); } } };
   $('#logoClear').onclick = () => { assets.logo = null; };
   /* sound */
-  const audioInfo = () => { $('#audioInfo').textContent = [assets.musicName && `Music: ${assets.musicName}`, assets.revealName && `Reveal sound: ${assets.revealName}`].filter(Boolean).join(' · ') + (assets.musicName || assets.revealName ? '  (audio files are not saved with the project — re-add after reload)' : ''); };
+  const audioInfo = () => { $('#audioInfo').textContent = [assets.qAudioName && `Audio 1: ${assets.qAudioName}`, assets.musicName && `Music: ${assets.musicName}`, assets.revealName && `Reveal sound: ${assets.revealName}`].filter(Boolean).join(' · ') + (assets.musicName || assets.revealName || assets.qAudioName ? '  (audio files are not saved with the project — re-add after reload)' : ''); };
   $('#musIn').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { assets.music = await AE.decode(f); assets.musicName = f.name; audioInfo(); toast('Music added.'); } catch { toast('Could not decode that audio file.'); } };
   $('#musClear').onclick = () => { assets.music = null; assets.musicName = ''; AE.stopMusic(); audioInfo(); };
+  $('#qaIn').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { assets.qAudio = await AE.decode(f); assets.qAudioName = f.name; audioInfo(); toast('Audio 1 added.'); } catch { toast('Could not decode that audio file.'); } };
+  $('#qaClear').onclick = () => { assets.qAudio = null; assets.qAudioName = ''; AE.stopQAudio(); audioInfo(); };
   $('#revIn').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { assets.reveal = await AE.decode(f); assets.revealName = f.name; audioInfo(); toast('Reveal sound added.'); } catch { toast('Could not decode that audio file.'); } };
   $('#revClear').onclick = () => { assets.reveal = null; assets.revealName = ''; audioInfo(); };
   $('#btnApplyTimer').onclick = () => { Q.forEach(q => { q.time = null; }); renderTable(); rebuild(); save(); toast('All questions now use the default timer.'); };
