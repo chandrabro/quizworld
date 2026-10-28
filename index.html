@@ -117,6 +117,11 @@
         <label>Font
           <select data-s="font"><option>Noto Sans Devanagari</option><option>Mukta</option><option>Hind</option><option>Inter</option></select>
         </label>
+        <label>Countdown style
+          <select data-s="timerStyle"><option value="ring">Ring</option><option value="number">Big number</option><option value="bar">Bar under header</option><option value="top">Top bar</option></select>
+        </label>
+        <label>Text size <input data-s="textScale" type="range" min="0.6" max="1.6" step="0.05"></label>
+        <label class="chk"><input data-s="safeZone" type="checkbox"> 9:16 safe zone (keep clear of Shorts/Reels buttons)</label>
         <label>Card opacity <input data-s="cardAlpha" type="range" min="0.04" max="0.4" step="0.01"></label>
         <label>Background 1 <input data-s="bg1" type="color"></label>
         <label>Background 2 <input data-s="bg2" type="color"></label>
@@ -143,7 +148,35 @@
         <label>Seconds <input data-s="outroSec" type="number" min="1" max="15" step="0.5"></label>
         <label>Outro <input data-s="outro" type="text"></label>
         <label>Outro subtitle <input data-s="outroSub" type="text"></label>
+        <label>Title animation
+          <select data-s="titleAnim"><option value="rise">Rise &amp; fade</option><option value="zoom">Zoom pop</option><option value="slide">Slide in</option><option value="typewriter">Typewriter</option></select>
+        </label>
       </div>
+
+      <h3>Quiz summary slide (before the outro)</h3>
+      <div class="muted small">An end card that asks viewers to comment their score, with the answer key and score bands.</div>
+      <div class="grid2">
+        <label class="chk"><input data-s="summaryOn" type="checkbox"> Show summary slide</label>
+        <label>Seconds <input data-s="summarySec" type="number" min="2" max="30" step="1"></label>
+        <label>Heading <input data-s="summaryTitle" type="text"></label>
+        <label>Sub-heading <input data-s="summarySub" type="text"></label>
+        <label class="chk"><input data-s="summaryKey" type="checkbox"> Show answer key</label>
+        <label class="chk"><input data-s="summaryTiers" type="checkbox"> Show score bands (Genius / Great / Good…)</label>
+      </div>
+
+      <h3>Intro / outro video</h3>
+      <div class="muted small">Play your own clip before the title slide and after the outro slide (MP4 or WebM). Turn off “Show title slide” above to use the video alone.</div>
+      <div class="row wrap">
+        <label class="filebtn">Intro video <input type="file" id="ivIn" accept="video/*" hidden></label>
+        <button id="ivClear">remove</button>
+        <label class="filebtn">Outro video <input type="file" id="ovIn" accept="video/*" hidden></label>
+        <button id="ovClear">remove</button>
+      </div>
+      <div class="grid2">
+        <label>Video volume <input data-s="vidVol" type="range" min="0" max="1" step="0.05"></label>
+        <label>Max length (s, 0 = whole clip) <input data-s="vidMax" type="number" min="0" max="120" step="1"></label>
+      </div>
+      <div class="muted small" id="vidInfo"></div>
     </div>
 
     <!-- TIMING & SOUND -->
@@ -185,6 +218,20 @@
         <button id="musClear">remove</button>
       </div>
       <label>Background music volume <input data-s="musicVol" type="range" min="0" max="1" step="0.01"></label>
+
+      <h3>Last-seconds cue</h3>
+      <div class="muted small">When a question's timer is almost up the mood changes: a rising sweep (or your own file) plays, Audio 1 fades down, and the screen edge pulses red.</div>
+      <div class="grid2">
+        <label class="chk"><input data-s="urgentOn" type="checkbox"> Sound cue</label>
+        <label class="chk"><input data-s="urgentVisual" type="checkbox"> Red edge pulse</label>
+        <label>Starts during the last (s) <input data-s="urgentSec" type="number" min="1" max="15" step="1"></label>
+        <label>Custom cue volume <input data-s="urgentVol" type="range" min="0" max="1" step="0.05"></label>
+      </div>
+      <div class="row wrap">
+        <label class="filebtn">Custom last-seconds audio <input type="file" id="uaIn" accept="audio/*" hidden></label>
+        <button id="uaClear">remove</button>
+      </div>
+      <div class="muted small">With a custom file, Audio 1 fades out completely and your file plays instead. Without one, Audio 1 just ducks and the sweep plays.</div>
 
       <h3>Reveal sound</h3>
       <div class="row wrap">
@@ -242,8 +289,14 @@
           <select data-s="fps"><option value="24">24</option><option value="30">30</option><option value="60">60</option></select>
         </label>
         <label>Bitrate (Mbps) <input data-s="bitrate" type="number" min="1" max="40" step="1"></label>
-        <label>Format <select id="mimeSel" data-s="exportMime"></select></label>
+        <label>Format (live only) <select id="mimeSel" data-s="exportMime"></select></label>
       </div>
+      <label>Export method
+        <select id="exportMethod" data-s="exportMethod">
+          <option value="fast">Fast (offline render — no screen share, much quicker than real time)</option>
+          <option value="live">Live recording (real time — can capture the voice)</option>
+        </select>
+      </label>
       <label>Audio in the video
         <select data-s="exportAudio">
           <option value="sfx">Sound effects + music (TTS not recorded)</option>
@@ -251,6 +304,9 @@
           <option value="silent">No audio</option>
         </select>
       </label>
+      <div class="note ok">
+        <b>Fast export</b> draws every frame itself and mixes the sounds offline, so it can finish several times faster than the video length and keeps working while you use other tabs. It produces an MP4 and includes effects, music, Audio 1, the last-seconds cue and intro/outro video sound — but <b>not the text-to-speech voice</b>. For a video with voice, choose <i>Live recording</i> + <i>Capture everything</i>.
+      </div>
       <div class="note">
         <b>About voice in exported video:</b> browsers do not let a web page record its own text-to-speech output. To get the voice into the file, pick
         <i>“Capture everything”</i>: your browser will ask what to share — choose <b>Entire screen</b> and tick <b>Share system audio</b> (Windows/ChromeOS Chrome or Edge). Tab-only sharing usually skips the speech voice. Keep this tab visible while recording.
@@ -269,6 +325,7 @@
   </section>
 </main>
 <div id="toast"></div>
+<script src="vendor/mp4-muxer.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
